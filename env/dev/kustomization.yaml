@@ -1,8 +1,11 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+
 resources:
 - ../../base
+
 namespace: guestbook-simple-dev
+
 images:
-- name: us-east4-docker.pkg.dev/sap-ems-gap-sandbox/ghcr/icarusdes/guestbook
+- name: us-east4-docker.pkg.dev/sap-ems-gap-sandbox/use4-misc-images/guestbook
   newTag: v0.0.2

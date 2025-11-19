@@ -1,0 +1,69 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: guestbook-dev
+  namespace: argocd
+  annotations:
+    kargo.akuity.io/authorized-stage: gke-fleet:dev
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nizarhelmi/kargo-simple.git
+    targetRevision: main
+    path: env/dev
+  destination:
+    server: https://connectgateway.googleapis.com/v1beta1/projects/90257023985/locations/global/gkeMemberships/gap-staging-use4
+    namespace: guestbook-simple-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: guestbook-staging
+  namespace: argocd
+  annotations:
+    kargo.akuity.io/authorized-stage: gke-fleet:staging
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nizarhelmi/kargo-simple.git
+    targetRevision: main
+    path: env/staging
+  destination:
+    server: https://connectgateway.googleapis.com/v1beta1/projects/90257023985/locations/global/gkeMemberships/gap-staging-use4
+    namespace: guestbook-simple-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: guestbook-prod
+  namespace: argocd
+  annotations:
+    kargo.akuity.io/authorized-stage: gke-fleet:prod
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nizarhelmi/kargo-simple.git
+    targetRevision: main
+    path: env/prod
+  destination:
+    server: https://connectgateway.googleapis.com/v1beta1/projects/90257023985/locations/global/gkeMemberships/gap-staging-use4
+    namespace: guestbook-simple-prod
+  syncPolicy:
+    # Manual sync for production - you might want to approve prod deployments manually
+    syncOptions:
+      - CreateNamespace=true

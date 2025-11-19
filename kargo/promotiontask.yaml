@@ -10,7 +10,7 @@ spec:
   - name: branch
     value: main
   - name: image
-    value: us-east4-docker.pkg.dev/sap-ems-gap-sandbox/ghcr/icarusdes/guestbook
+    value: us-east4-docker.pkg.dev/sap-ems-gap-sandbox/use4-misc-images/guestbook
   - name: openpr
     value: "false"
   steps:
@@ -62,7 +62,7 @@ spec:
   # Wait for the pull request to be merged.
   - uses: git-wait-for-pr
     as: wait-for-pr
-    if: ${{ vars.openpr == 'true' }}
+    if: ${{ vars.openpr == 'true' && task.outputs['open-pr'].prNumber != null }}
     config:
       repoURL: ${{ vars.repoURL }}
       prNumber: ${{ task.outputs['open-pr'].prNumber }}
@@ -70,9 +70,9 @@ spec:
   # If you have an Argo CD Application that should be synced after the Git
   # repository is updated, uncomment the following lines and specify the
   # app name.
-  - uses: argocd-update
-    config:
-      apps:
-      - name: guestbook-${{ ctx.stage }}
-        sources:
-        - repoURL: ${{ vars.repoURL }}
+  # - uses: argocd-update
+  #   config:
+  #     apps:
+  #     - name: guestbook-${{ ctx.stage }}
+  #       sources:
+  #       - repoURL: ${{ vars.repoURL }}

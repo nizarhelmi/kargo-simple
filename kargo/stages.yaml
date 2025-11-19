@@ -63,4 +63,4 @@ spec:
           name: promote
         vars:
         - name: openpr
-          value: "true"
+          value: "false"
