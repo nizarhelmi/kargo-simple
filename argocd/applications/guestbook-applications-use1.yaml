@@ -2,7 +2,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: guestbook-dev
+  name: guestbook-dev-use1
   namespace: argocd
   annotations:
     kargo.akuity.io/authorized-stage: gke-fleet:dev
@@ -13,7 +13,7 @@ spec:
     targetRevision: main
     path: env/dev
   destination:
-    server: https://connectgateway.googleapis.com/v1beta1/projects/90257023985/locations/global/gkeMemberships/gap-staging-use4
+    server: https://connectgateway.googleapis.com/v1beta1/projects/90257023985/locations/us-east1/gkeMemberships/gap-staging-use1
     namespace: guestbook-simple-dev
   syncPolicy:
     automated:
@@ -26,7 +26,7 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: guestbook-staging
+  name: guestbook-staging-use1
   namespace: argocd
   annotations:
     kargo.akuity.io/authorized-stage: gke-fleet:staging
@@ -37,7 +37,7 @@ spec:
     targetRevision: main
     path: env/staging
   destination:
-    server: https://connectgateway.googleapis.com/v1beta1/projects/90257023985/locations/global/gkeMemberships/gap-staging-use4
+    server: https://connectgateway.googleapis.com/v1beta1/projects/90257023985/locations/us-east1/gkeMemberships/gap-staging-use1
     namespace: guestbook-simple-staging
   syncPolicy:
     automated:
@@ -50,7 +50,7 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: guestbook-prod
+  name: guestbook-prod-use1
   namespace: argocd
   annotations:
     kargo.akuity.io/authorized-stage: gke-fleet:prod
@@ -61,7 +61,7 @@ spec:
     targetRevision: main
     path: env/prod
   destination:
-    server: https://connectgateway.googleapis.com/v1beta1/projects/90257023985/locations/global/gkeMemberships/gap-staging-use4
+    server: https://connectgateway.googleapis.com/v1beta1/projects/90257023985/locations/us-east1/gkeMemberships/gap-staging-use1
     namespace: guestbook-simple-prod
   syncPolicy:
     # Manual sync for production - you might want to approve prod deployments manually

@@ -1,0 +1,27 @@
+# NOTE: This secret is not currently used by any applications.
+# The use4 applications use the local cluster connection (https://kubernetes.default.svc)
+# since ArgoCD runs on the same cluster (gap-staging-use4).
+# This secret is kept for reference in case Connect Gateway access is needed.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fleet-cluster-gap-staging-use4
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: cluster
+type: Opaque
+stringData:
+  name: fleet-cluster-gap-staging-use4
+  server: https://connectgateway.googleapis.com/v1beta1/projects/90257023985/locations/us-east4/gkeMemberships/gap-staging-use4
+  config: |
+    {
+      "execProviderConfig": {
+        "command": "argocd-k8s-auth",
+        "args": ["gcp"],
+        "apiVersion": "client.authentication.k8s.io/v1beta1"
+      },
+      "tlsClientConfig": {
+        "insecure": false,
+        "caData": ""
+      }
+    }

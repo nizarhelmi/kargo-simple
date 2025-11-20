@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: argocd-application-controller
+  namespace: argocd
+spec:
+  template:
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+        role: whitelist
+      tolerations:
+      - effect: NoSchedule
+        key: role
+        operator: Equal
+        value: whitelist
+      containers:
+      - name: application-controller
+        env:
+        - name: GOOGLE_SERVICE_ACCOUNT_NAME
+          value: argocd-fleet-access@sap-ems-central-monitoring-poc.iam.gserviceaccount.com

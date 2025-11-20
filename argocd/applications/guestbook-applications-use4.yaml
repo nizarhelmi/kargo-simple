@@ -1,0 +1,68 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: guestbook-dev-use4
+  namespace: argocd
+  annotations:
+    kargo.akuity.io/authorized-stage: gke-fleet:dev
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nizarhelmi/kargo-simple.git
+    targetRevision: main
+    path: env/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: guestbook-simple-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: guestbook-staging-use4
+  namespace: argocd
+  annotations:
+    kargo.akuity.io/authorized-stage: gke-fleet:staging
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nizarhelmi/kargo-simple.git
+    targetRevision: main
+    path: env/staging
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: guestbook-simple-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: guestbook-prod-use4
+  namespace: argocd
+  annotations:
+    kargo.akuity.io/authorized-stage: gke-fleet:prod
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nizarhelmi/kargo-simple.git
+    targetRevision: main
+    path: env/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: guestbook-simple-prod
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

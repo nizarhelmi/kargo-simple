@@ -1,0 +1,162 @@
+# Multi-Cluster GitOps with Kargo & ArgoCD
+
+## What This Demonstrates
+
+A working **multi-cluster GitOps pipeline** using:
+- **Kargo** for GitOps promotion workflows  
+- **ArgoCD** for cross-cluster deployment
+- **GKE Fleet + Connect Gateway** for secure cluster access across Google Cloud projects
+- **Workload Identity** for authentication
+
+## Current Status: ✅ WORKING
+
+All applications deployed and healthy across both clusters:
+
+```
+CLUSTER    APPLICATION              STATUS
+use1       guestbook-dev-use1       Synced/Healthy  
+use1       guestbook-staging-use1   Synced/Healthy
+use1       guestbook-prod-use1      Synced/Healthy
+use4       guestbook-dev-use4       Synced/Healthy  
+use4       guestbook-staging-use4   Synced/Healthy
+use4       guestbook-prod-use4      Synced/Healthy
+```
+
+## Architecture
+
+```
+┌─────────────────────────────────┐    ┌─────────────────────────────────┐
+│     Fleet Host Project          │    │    Target Cluster Project       │
+│  sap-ems-central-monitoring-poc │    │   sap-ems-gap-sandbox-net      │
+│                                 │    │                                 │
+│  ┌─────────────────────────────┐│    │ ┌─────────────────────────────┐ │
+│  │   Control Cluster (use4)    ││    │ │   Target Cluster (use1)     │ │
+│  │                             ││    │ │                             │ │
+│  │  ┌─────────┐ ┌────────────┐ ││    │ │  ┌─────────────────────────┐│ │
+│  │  │  Kargo  │ │   ArgoCD   │ ││    │ │  │    Applications        ││ │
+│  │  │         │ │            │ ││────┼─┼─▶│  • guestbook-dev       ││ │
+│  │  │ Promote │ │ Deploy     │ ││    │ │  │  • guestbook-staging   ││ │
+│  │  └─────────┘ └────────────┘ ││    │ │  │  • guestbook-prod      ││ │
+│  └─────────────────────────────┘│    │ │  └─────────────────────────┘│ │
+└─────────────────────────────────┘    │ └─────────────────────────────┘ │
+                                       └─────────────────────────────────┘
+         Connect Gateway: connectgateway.googleapis.com/.../gap-staging-use1
+```
+
+### 1. GKE Fleet Configuration
+- **Fleet Host Project**: `sap-ems-central-monitoring-poc` (project ID: 90257023985)
+- **Control Cluster**: `gap-staging-use4` (hosts Kargo + ArgoCD)
+- **Target Cluster**: `gap-staging-use1` in `sap-ems-gap-sandbox-net` (project ID: 90608020739)
+- **Fleet Membership**: Registered with Connect Gateway in `us-east1` location
+
+### 2. Connect Gateway Setup
+- **Authentication**: Workload Identity with Google Service Account
+- **Service Account**: `argocd-fleet-access@sap-ems-central-monitoring-poc.iam.gserviceaccount.com`
+- **Gateway URL**: `https://connectgateway.googleapis.com/v1beta1/projects/90257023985/locations/us-east1/gkeMemberships/gap-staging-use1`
+
+### 3. Kargo Workflow
+- **Image Repository**: `us-east4-docker.pkg.dev/sap-ems-gap-sandbox/use4-misc-images/guestbook`
+- **Promotion Pipeline**: dev → staging → prod
+- **Cross-cluster**: Promotes to both local (use4) and remote (use1) clusters
+
+## Requirements
+
+* Kargo v1.3.x (for older Kargo versions, switch to the release-X.Y branch)
+* ArgoCD installed on control cluster
+* Connect Gateway APIs enabled on both projects
+* Proper IAM roles and Workload Identity configuration
+
+## Directory Structure
+
+```
+kargo-simple/
+├── README.md                           # This file  
+├── docs/
+│   ├── SETUP-GUIDE.md                 # Step-by-step setup instructions
+│   ├── CLUSTER-CONFIGURATIONS.md      # Per-cluster configuration details
+│   ├── API-IAM-REQUIREMENTS.md        # Required APIs and IAM roles
+│   ├── ARGOCD-WORKLOAD-IDENTITY.md    # ArgoCD Workload Identity configuration
+│   ├── NETWORK-CONFIGURATION.md       # Network restrictions & whitelist nodepool setup
+│   ├── PROJECT-SUMMARY.md             # Project overview and achievements
+│   ├── CURRENT-STATUS.md              # Current operational status
+│   └── VALIDATION-REPORT.md           # Live vs documentation verification
+├── argocd/
+│   ├── applications/                  # ArgoCD application definitions
+│   │   ├── guestbook-applications-use1.yaml
+│   │   ├── guestbook-applications-use4.yaml
+│   │   └── nizarhelmi-repo-credentials.yaml
+│   └── clusters/                      # Cluster connection configs (reference)
+│       ├── use1.yaml                 # Connect Gateway config for remote cluster
+│       └── use4.yaml                 # Reference config (not used, local cluster)
+├── kargo/                            # Kargo workflow configuration
+│   ├── project.yaml                  # Kargo project definition
+│   ├── warehouse.yaml                # Container image warehouse
+│   ├── stages.yaml                   # Promotion stages (dev/staging/prod)
+│   └── promotiontask.yaml            # Custom promotion tasks
+├── base/                             # Base Kubernetes manifests
+│   ├── guestbook-deploy.yaml
+│   ├── guestbook-svc.yaml
+│   ├── guestbook-ns.yaml
+│   └── kustomization.yaml
+└── env/                              # Environment overlays
+    ├── dev/
+    ├── staging/
+    └── prod/
+```
+
+## Quick Start
+
+1. **Prerequisites**: Ensure you have the required APIs enabled and IAM roles configured (see `docs/API-IAM-REQUIREMENTS.md`)
+
+2. **Deploy Kargo and ArgoCD**:
+   ```bash
+   kubectl apply -f kargo/
+   kubectl apply -f argocd/applications/
+   ```
+
+3. **Verify Setup**: Check that all applications are healthy and synced:
+   ```bash
+   kubectl get applications -n argocd
+   ```
+
+4. **Test the Setup**: Create a promotion to verify the multi-cluster workflow:
+   ```bash
+   kargo promote --stage=staging --project=gke-fleet
+   ```
+
+## Features Demonstrated
+
+- ✅ **Cross-project cluster access** using Connect Gateway
+- ✅ **Workload Identity authentication** for secure access  
+- ✅ **Multi-cluster application deployment** via ArgoCD
+- ✅ **GitOps promotion workflows** using Kargo
+- ✅ **Container image management** with Artifact Registry
+- ✅ **Network restrictions** support (whitelist nodes)
+- ✅ **IAM-based authentication** for service accounts
+
+## Troubleshooting
+
+### Common Issues
+1. **"error synchronizing cache state : unknown"**: Missing Connect Gateway API on cluster project
+2. **Image pull errors**: Artifact Registry permissions not granted to cluster service account  
+3. **Authentication failures**: Workload Identity not properly configured
+4. **Pod scheduling failures**: Check node selectors and taints for network restrictions
+
+### Debug Commands
+```bash
+# Check ArgoCD logs
+kubectl logs argocd-application-controller-0 -n argocd --tail=50
+
+# Verify Connect Gateway connectivity  
+kubectl exec -it argocd-application-controller-0 -n argocd -- curl -s "https://connectgateway.googleapis.com/v1beta1/projects/90257023985/locations/us-east1/gkeMemberships/gap-staging-use1"
+
+# Check application status
+kubectl get application -n argocd
+kubectl describe application guestbook-dev-use1 -n argocd
+```
+
+For detailed setup instructions, see [docs/SETUP-GUIDE.md](docs/SETUP-GUIDE.md).
+
+## 📊 Current Status
+
+**All systems operational!** See [docs/CURRENT-STATUS.md](docs/CURRENT-STATUS.md) for the latest status report and validation commands.

@@ -1,120 +1,153 @@
-# Kargo Simple Example
+# Multi-Cluster GitOps with Kargo & ArgoCD
 
-This is a GitOps repository of a simple Kargo example for getting started.
+## What This Demonstrates
 
-### Features:
+A working **multi-cluster GitOps pipeline** using:
+- **Kargo** for GitOps promotion workflows  
+- **ArgoCD** for cross-cluster deployment
+- **GKE Fleet + Connect Gateway** for secure cluster access across Google Cloud projects
+- **Workload Identity** for authentication
 
-* A Warehouse which monitors a container repository for new images
-* Three Stage (dev, staging, prod) deploy pipeline
-* Image tag promotion
-* PromotionTask with a conditional pull request
-* Direct Git commits to dev, staging
-* Pull request for promotion to prod
+## Current Status: ✅ WORKING
 
-This example does not require an Argo CD instance and so would work with any
-GitOps operator (Argo CD, Flux) that detects and deploys manifest changes from
-a path in a Git repository automatically (e.g. using auto-sync).
+All applications deployed and healthy across both clusters:
 
-## Requirements
-
-* Kargo v1.3.x (for older Kargo versions, switch to the release-X.Y branch)
-* GitHub and a container registry (GHCR.io)
-* `git` and `docker` installed
-
-## Instructions
-
-1. Fork this repo, then clone it locally (from your fork).
-2. Run the `personalize.sh` to customize the manifests to use your GitHub
-   username:
-
-   ```shell
-   ./personalize.sh <yourgithubusername>
-   ```
-3. `git commit` the personalized changes:
-
-   ```shell
-   git commit -a -m "personalize manifests"
-   git push
-   ```
-4. Create a guestbook container image repository in your GitHub account. 
-
-   The easiest way to create a new ghcr.io image repository, is by retagging and 
-   pushing an existing image with your GitHub username:
-
-   ```shell
-   docker login ghcr.io
-
-   docker buildx imagetools create \
-     ghcr.io/akuity/guestbook:latest \
-     -t ghcr.io/<yourgithubusername>/guestbook:v0.0.1
-   ```
-
-   You will now have a `guestbook` container image repository. e.g.:
-   https://github.com/yourgithubusername/guestbook/pkgs/container/guestbook
-
-5. Change guestbook container image repository to public.
-
-   In the GitHub UI, navigate to the "guestbook" container repository, Package
-   settings, and change the visibility of the package to public. This will allow
-   Kargo to monitor this repository for new images, without requiring you to 
-   configuring Kargo with container image repository credentials.
-
-   ![change-package-visibility](docs/change-package-visibility.png)
-
-6. Download and install the latest CLI from [Kargo Releases](https://github.com/akuity/kargo/releases/latest)
-
-   ```shell
-   ./download-cli.sh /usr/local/bin/kargo
-   ```
-
-7. Login to Kargo:
-
-   ```shell
-   kargo login --admin https://<kargo-url>
-   ```
-
-8. Apply the Kargo manifests:
-
-   ```shell
-   kargo apply -f ./kargo
-   ```
-
-9. Add the Git repository credentials to Kargo. This can also be done in the UI
-   in the `kargo-simple` Project.
-
-   ```shell
-   kargo create credentials github-creds \
-     --project kargo-simple \
-     --git \
-     --username <yourgithubusername> \
-     --repo-url https://github.com/<yourgithubusername>/kargo-simple.git
-   ```
-
-   As part of the promotion process, Kargo requires privileges to commit changes
-   to your Git repository, as well as the ability to create pull requests. Ensure
-   that the given token has these privileges.
-
-10. Promote the image!
-
-    You now have a Kargo Pipeline which promotes images from the guestbook
-    container image repository, through a three-stage deploy pipeline. Visit
-    the `kargo-simple` Project in the Kargo UI to see the deploy pipeline.
-
-    ![pipeline](docs/pipeline.png)
-
-    To promote, click the target icon to the left of the `dev` Stage, select
-    the detected Freight, and click `Yes` to promote. Once promoted, the Freight
-    will be qualified to be promoted to downstream Stages (`staging`, `prod`).
-
-
-## Simulating a release
-
-To simulate a release, simply retag an image with a newer semantic version. e.g.:
-
-```shell
-docker buildx imagetools create \
-  ghcr.io/akuity/guestbook:latest \
-  -t ghcr.io/<yourgithubusername>/guestbook:v0.0.2
+```
+CLUSTER    APPLICATION              STATUS
+use1       guestbook-dev-use1       Synced/Healthy  
+use1       guestbook-staging-use1   Synced/Healthy
+use1       guestbook-prod-use1      Synced/Healthy
+use4       guestbook-dev-use4       Synced/Healthy  
+use4       guestbook-staging-use4   Synced/Healthy
+use4       guestbook-prod-use4      Synced/Healthy
 ```
 
-Then refresh the Warehouse in the UI to detect the new Freight.
+## Architecture
+
+```
+┌─────────────────────────────────┐    ┌─────────────────────────────────┐
+│     Fleet Host Project          │    │    Target Cluster Project       │
+│  sap-ems-central-monitoring-poc │    │   sap-ems-gap-sandbox-net      │
+│                                 │    │                                 │
+│  ┌─────────────────────────────┐│    │ ┌─────────────────────────────┐ │
+│  │   Control Cluster (use4)    ││    │ │   Target Cluster (use1)     │ │
+│  │                             ││    │ │                             │ │
+│  │  ┌─────────┐ ┌────────────┐ ││    │ │  ┌─────────────────────────┐│ │
+│  │  │  Kargo  │ │   ArgoCD   │ ││    │ │  │    Applications        ││ │
+│  │  │         │ │            │ ││────┼─┼─▶│  • guestbook-dev       ││ │
+│  │  │ Promote │ │ Deploy     │ ││    │ │  │  • guestbook-staging   ││ │
+│  │  └─────────┘ └────────────┘ ││    │ │  │  • guestbook-prod      ││ │
+│  └─────────────────────────────┘│    │ │  └─────────────────────────┘│ │
+└─────────────────────────────────┘    │ └─────────────────────────────┘ │
+                                       └─────────────────────────────────┘
+         Connect Gateway: connectgateway.googleapis.com/.../gap-staging-use1
+```
+
+## Key Configurations
+
+### 1. Projects & Clusters
+- **Fleet Host**: `sap-ems-central-monitoring-poc` (manages fleet)
+- **Control Cluster**: `gap-staging-use4` in `sap-ems-gap-sandbox` (hosts ArgoCD/Kargo)  
+- **Target Cluster**: `gap-staging-use1` in `sap-ems-gap-sandbox-net` (hosts apps)
+
+### 2. Service Account & Authentication
+```yaml
+Service Account: argocd-fleet-access@sap-ems-central-monitoring-poc.iam.gserviceaccount.com
+Workload Identity: ✅ Enabled on both clusters
+Environment Variable: GOOGLE_SERVICE_ACCOUNT_NAME set on ArgoCD controller
+```
+
+### 3. IAM Roles (split across projects)
+```yaml
+Fleet Host Project:
+  - roles/container.clusterViewer
+  - roles/gkehub.gatewayEditor
+  - roles/gkehub.viewer
+
+Target Cluster Project:
+  - roles/container.clusterViewer  
+  - roles/container.developer
+```
+
+### 4. Critical: Network Configuration
+**Issue**: Control cluster has network restrictions  
+**Solution**: ArgoCD pods scheduled on `whitelist` nodepool with internet access
+
+```yaml
+nodeSelector:
+  role: "whitelist"
+tolerations:
+- effect: "NoSchedule"
+  key: "role"
+  value: "whitelist"
+```
+
+### 5. APIs Enabled
+```yaml
+Fleet Host Project: connectgateway.googleapis.com, gkehub.googleapis.com
+Target Project: connectgateway.googleapis.com  
+```
+
+## Repository Structure
+
+```
+kargo-simple/
+├── README.md                    # This overview
+├── docs/
+│   ├── ESSENTIAL-CONFIG.md      # Critical configuration reference
+│   └── ARGOCD-PATCHES.md       # Required patches for network restrictions
+├── argocd/
+│   ├── applications/            # ArgoCD app definitions (use1 & use4)
+│   ├── clusters/               # Cluster configs (reference only)
+│   └── patches/                # Critical patches for multi-cluster setup
+│       ├── argocd-controller-patch.yaml
+│       └── proxy-repository-credentials.yaml
+├── kargo/                      # Kargo pipeline (gke-fleet namespace)
+│   ├── project.yaml           # Project: gke-fleet  
+│   ├── warehouse.yaml         # Registry: us-east4-docker.pkg.dev/.../guestbook
+│   ├── stages.yaml            # dev → staging → prod
+│   └── promotiontask.yaml     # Git-based promotion
+├── base/                       # Base manifests
+└── env/                        # Environment overlays (dev/staging/prod)
+```
+
+## Quick Validation
+
+```bash
+# Patches are already applied! Just verify status:
+
+# Check all apps (should show Healthy/Synced)
+kubectl get applications -n argocd | grep use
+
+# Test Connect Gateway
+kubectl exec -it argocd-application-controller-0 -n argocd -- \
+  curl -s "https://connectgateway.googleapis.com/v1beta1/projects/90257023985/locations/us-east1/gkeMemberships/gap-staging-use1/api/v1/nodes"
+
+# Check Kargo pipeline
+kubectl get stages,freight -n gke-fleet
+
+# Test promotion
+kargo promote --stage=staging --project=gke-fleet
+```
+
+## Key Learnings
+
+1. **Connect Gateway requires APIs on both projects** (fleet host AND target)
+2. **Critical patches required** for network restrictions (see `docs/ARGOCD-PATCHES.md`)
+3. **Environment variable GOOGLE_SERVICE_ACCOUNT_NAME** required for argocd-k8s-auth plugin
+4. **Whitelist nodepool** needed for ArgoCD pods in restricted networks  
+5. **Workload Identity must be enabled on clusters** before fleet registration
+6. **IAM roles can be split across projects** for better security
+7. **Proxy configuration** required for Git repository access in corporate networks
+
+## Production Considerations
+
+- ✅ **Security**: No service account keys, Workload Identity only
+- ✅ **Network**: Supports private clusters with restrictions  
+- ✅ **Cross-project**: Works across organizational boundaries
+- ✅ **Scalable**: Fleet-based management for multiple clusters
+- ✅ **Auditable**: GitOps with full audit trail
+
+---
+
+**Status**: Production-ready multi-cluster GitOps pipeline with enterprise security features.
