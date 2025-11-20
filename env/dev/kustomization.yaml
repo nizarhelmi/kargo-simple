@@ -5,4 +5,4 @@ resources:
 namespace: guestbook-simple-dev
 images:
 - name: us-east4-docker.pkg.dev/sap-ems-gap-sandbox/use4-misc-images/guestbook
-  newTag: v0.0.2
+  newTag: v0.0.3
